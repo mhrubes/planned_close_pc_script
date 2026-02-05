@@ -6,3 +6,5 @@ Možnosti zadání
 
 Příklad:
 **2h 30m 15s**
+
+[Stáhnout poslední verzi](https://github.com/mhrubes/planned_close_pc_script/releases/latest)
