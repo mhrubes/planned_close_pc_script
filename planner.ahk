@@ -7,12 +7,13 @@ global endTime := 0
 global countdownActive := false
 
 ; --- GUI ---
-Gui, Add, Text, , Zadej cas do vypnuti (napr.1h 30m, 45m, 2h 10m 5s):
+Gui, Add, Text,, Zadej cas do vypnuti (napr.1h 30m, 45m):
 Gui, Add, Edit, vHoursInput w200
 Gui, Add, Button, gStartShutdown w200, Spustit vypnuti
 Gui, Add, Button, gCancelShutdown w200, Zrusit vypnuti
 Gui, Add, Text, vCountdownText w200, Odpocet: -
-    Gui, Show, , Naplanovane vypnuti PC
+Gui, Add, Text, vShutdownTimeText w200,  ; nový text pro čas vypnutí
+Gui, Show,, Naplanovane vypnuti PC
 return
 
 ; --- START ---
@@ -25,12 +26,10 @@ StartShutdown:
         return
     }
 
-    ; Pokud už běží odpočet, varuj uživatele
-    if (countdownActive)
-        {
-            MsgBox, 48, Varovani, Odpocet uz bezi. Nejprve jej zruste tlacitkem "Zrusit vypnuti".
-            return
-        }
+    if (countdownActive) {
+        MsgBox, 48, Varovani, Odpocet jiz bezi. Nejprve jej zruste tlacitkem "Zrusit vypnuti".
+        return
+    }
 
     totalSeconds := ParseTimeToSeconds(input)
 
@@ -44,29 +43,31 @@ StartShutdown:
     countdownActive := true
 
     ; Spuštění vypnutí Windows
-    Run, shutdown.exe / s / t %totalSeconds%, , Hide
+    Run, shutdown.exe /s /t %totalSeconds%, , Hide
 
     ; Start timeru pro odpočet
     SetTimer, UpdateCountdown, 1000
-    return
+return
 
-    ; --- CANCEL ---
+; --- CANCEL ---
 CancelShutdown:
     if (countdownActive) {
-        Run, shutdown.exe / a, , Hide
+        Run, shutdown.exe /a, , Hide
         SetTimer, UpdateCountdown, Off
         countdownActive := false
-        GuiControl, , CountdownText, Odpocet: ZRUSENO
+        GuiControl,, CountdownText, Odpocet: ZRUSENO
+        GuiControl,, ShutdownTimeText,  ; vymazání textu
     }
-    return
+return
 
-    ; --- UPDATE COUNTDOWN ---
+; --- UPDATE COUNTDOWN ---
 UpdateCountdown:
     remainingMs := endTime - A_TickCount
     if (remainingMs <= 0) {
         SetTimer, UpdateCountdown, Off
         countdownActive := false
-        GuiControl, , CountdownText, Odpocet: PC se vypina...
+        GuiControl,, CountdownText, Odpocet: PC se vypina...
+        GuiControl,, ShutdownTimeText, 
         return
     }
 
@@ -80,45 +81,50 @@ UpdateCountdown:
     minutesLeft := Format("{:02}", minutesLeft)
     secondsLeft := Format("{:02}", secondsLeft)
 
-    GuiControl, , CountdownText, Odpocet: %hoursLeft%: %minutesLeft%: %secondsLeft%
-    return
+    GuiControl,, CountdownText, Odpocet: %hoursLeft%:%minutesLeft%:%secondsLeft%
 
-    ; --- PARSER TIME ---
-    ParseTimeToSeconds(str) {
-        str := Trim(str)
-        str := RegExReplace(str, "\s+", " ")
+    ; --- Přesný čas vypnutí ---
+    shutdownTime := A_Now
+    EnvAdd, shutdownTime, %totalSecLeft%, Seconds
+    FormatTime, shutdownTimeStr, %shutdownTime%, dd.MM.yyyy HH:mm:ss
+    GuiControl,, ShutdownTimeText, Cas vypnuti: %shutdownTimeStr%
+return
 
-        ; Ověření, že celý string je složen jen z bloků typu "číslo + jednotka"
-        if !RegExMatch(str, "^(?:\d+(\.\d+)?\s*[hmsHMS]\s*)+$")
-            return 0
+; --- PARSER TIME ---
+ParseTimeToSeconds(str) {
+    str := Trim(str)
+    str := RegExReplace(str, "\s+", " ")
 
-        total := 0
-        pos := 1
+    if !RegExMatch(str, "^(?:\d+(\.\d+)?\s*[hmsHMS]\s*)+$")
+        return 0
 
-        while (pos := RegExMatch(str, "(\d+(\.\d+)?)[ ]*([hmsHMS])", m, pos)) {
-            value := m1 + 0
-            unit := m3
+    total := 0
+    pos := 1
 
-            if (unit = "h" or unit = "H")
-                total += value * 3600
-            else if (unit = "m" or unit = "M")
-                total += value * 60
-            else if (unit = "s" or unit = "S")
-                total += value
+    while (pos := RegExMatch(str, "(\d+(\.\d+)?)[ ]*([hmsHMS])", m, pos)) {
+        value := m1 + 0
+        unit := m3
 
-            pos += StrLen(m)   ; správně pro AHK v1
-        }
+        if (unit = "h" or unit = "H")
+            total += value * 3600
+        else if (unit = "m" or unit = "M")
+            total += value * 60
+        else if (unit = "s" or unit = "S")
+            total += value
 
-        return Round(total)
+        pos += StrLen(m)
     }
 
-    ; --- GUI CLOSE ---
+    return Round(total)
+}
+
+; --- GUI CLOSE ---
 GuiClose:
 GuiEscape:
     if (countdownActive) {
-        Run, shutdown.exe / a, , Hide
+        Run, shutdown.exe /a, , Hide
         SetTimer, UpdateCountdown, Off
         countdownActive := false
         MsgBox, 64, Vypnuti zrusene, Odpocet do vypnuti PC byl zrusen.
     }
-    ExitApp
+ExitApp
