@@ -1,4 +1,6 @@
-Možnosti zadání
+Aplikace slouží k naplánování vypnutí PC podle zadaného času.
+
+Možnosti zadání v zadání
 
 **1h** - 1 hodina (odpočet na 1 hodinu)
 **1m** - 1 minuta (odpočet na 1 minutu)
